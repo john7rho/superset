@@ -20,11 +20,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import tomllib
 from packaging.requirements import Requirement
 from packaging.version import Version
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BASE_IN = REPO_ROOT / "requirements" / "base.in"
+PYPROJECT_TOML = REPO_ROOT / "pyproject.toml"
 
 
 def _get_requirement(package_name: str) -> Requirement:
@@ -40,6 +42,20 @@ def _get_requirement(package_name: str) -> Requirement:
         if req.name.lower() == package_name.lower():
             return req
     raise AssertionError(f"{package_name} not found in {BASE_IN}")
+
+
+def _get_pyproject_requirement(package_name: str) -> Requirement:
+    """Parse *package_name* from pyproject.toml dependencies."""
+    with PYPROJECT_TOML.open("rb") as fh:
+        data = tomllib.load(fh)
+    for dep in data.get("project", {}).get("dependencies", []):
+        try:
+            req = Requirement(dep)
+        except (ValueError, TypeError):
+            continue
+        if req.name.lower() == package_name.lower():
+            return req
+    raise AssertionError(f"{package_name} not found in {PYPROJECT_TOML}")
 
 
 def test_urllib3_cve_2023_43804() -> None:
@@ -61,4 +77,26 @@ def test_urllib3_cve_2023_43804() -> None:
     ), (
         f"urllib3 constraint '{req.specifier}' does not allow any patched "
         f"2.x version (CVE-2023-43804)"
+    )
+
+
+def test_flask_cve_2023_30861() -> None:
+    """CVE-2023-30861: Session cookie sent to wrong client via caching proxy.
+
+    Fixed in flask >= 2.2.5 (2.2.x branch) and >= 2.3.2 (2.3.x branch).
+    The lower bound of the flask requirement must exclude vulnerable versions.
+    """
+    req = _get_pyproject_requirement("flask")
+    vulnerable_versions = ["2.2.4", "2.2.3", "2.2.0", "2.3.1", "2.3.0", "2.1.0"]
+    for ver in vulnerable_versions:
+        assert Version(ver) not in req.specifier, (
+            f"flask constraint '{req.specifier}' allows vulnerable "
+            f"version {ver} (CVE-2023-30861)"
+        )
+    # At least one patched version must be installable
+    assert Version("2.2.5") in req.specifier or any(
+        Version(v) in req.specifier for v in ["2.3.2", "2.3.3", "3.0.0"]
+    ), (
+        f"flask constraint '{req.specifier}' does not allow any patched "
+        f"version (CVE-2023-30861)"
     )
