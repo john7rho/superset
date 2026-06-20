@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import json  # noqa: TID251
 from pathlib import Path
 
 from packaging.requirements import Requirement
@@ -25,6 +26,7 @@ from packaging.version import Version
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BASE_IN = REPO_ROOT / "requirements" / "base.in"
+FRONTEND_PACKAGE_JSON = REPO_ROOT / "superset-frontend" / "package.json"
 
 
 def _get_requirement(package_name: str) -> Requirement:
@@ -62,3 +64,49 @@ def test_urllib3_cve_2023_43804() -> None:
         f"urllib3 constraint '{req.specifier}' does not allow any patched "
         f"2.x version (CVE-2023-43804)"
     )
+
+
+def _get_npm_override(package_name: str) -> str:
+    """Read the npm override constraint for *package_name* from package.json."""
+    data = json.loads(FRONTEND_PACKAGE_JSON.read_text())
+    overrides = data.get("overrides", {})
+    constraint = overrides.get(package_name)
+    if constraint is None:
+        raise AssertionError(
+            f"{package_name} not found in overrides of {FRONTEND_PACKAGE_JSON}"
+        )
+    if not isinstance(constraint, str):
+        raise AssertionError(f"{package_name} override is not a simple version string")
+    return constraint
+
+
+def _npm_constraint_rejects(constraint: str, version: str) -> bool:
+    """Check if an npm-style constraint rejects a given version.
+
+    Supports >=X.Y.Z style constraints used in overrides.
+    """
+    req = Requirement(f"dummy{constraint}")
+    return Version(version) not in req.specifier
+
+
+def test_postcss_ghsa_7fh5_64p2_3v2j() -> None:
+    """GHSA-7fh5-64p2-3v2j / CVE-2023-44270: line return parsing error in
+    PostCSS allows comment content injection.
+
+    Fixed in postcss >= 8.4.31.
+    The npm override must reject all vulnerable versions (< 8.4.31).
+    """
+    constraint = _get_npm_override("postcss")
+    vulnerable_versions = ["8.4.30", "8.4.20", "8.4.0", "8.0.0", "7.0.0"]
+    for ver in vulnerable_versions:
+        assert _npm_constraint_rejects(constraint, ver), (
+            f"postcss override '{constraint}' allows vulnerable "
+            f"version {ver} (GHSA-7fh5-64p2-3v2j)"
+        )
+    # Patched versions must be allowed
+    patched_versions = ["8.4.31", "8.4.40", "8.5.15"]
+    for ver in patched_versions:
+        assert not _npm_constraint_rejects(constraint, ver), (
+            f"postcss override '{constraint}' rejects patched "
+            f"version {ver} (GHSA-7fh5-64p2-3v2j)"
+        )
