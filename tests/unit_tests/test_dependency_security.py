@@ -18,12 +18,13 @@
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
 from packaging.requirements import Requirement
 from packaging.version import Version
+
+from superset.utils import json
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BASE_IN = REPO_ROOT / "requirements" / "base.in"
@@ -57,30 +58,23 @@ def _npm_caret_min_version(spec: str) -> Version:
     return Version(match.group(1))
 
 
-def _get_npm_dependency_version(
-    package_name: str,
-) -> str:
-    """Return the version range string for *package_name* from superset-frontend/package.json."""
+def _get_npm_dependency_version(package_name: str) -> str:
+    """Return the version range for *package_name* from package.json."""
     data = json.loads(FRONTEND_PACKAGE_JSON.read_text())
     for section in ("dependencies", "devDependencies"):
         version = data.get(section, {}).get(package_name)
         if version is not None:
             return version
-    raise AssertionError(
-        f"{package_name} not found in {FRONTEND_PACKAGE_JSON}"
-    )
+    raise AssertionError(f"{package_name} not found in {FRONTEND_PACKAGE_JSON}")
 
 
 def _get_npm_resolved_version(package_name: str) -> Version:
     """Return the resolved version of *package_name* from the npm lockfile."""
     data = json.loads(FRONTEND_LOCK_JSON.read_text())
-    packages = data.get("packages", {})
     key = f"node_modules/{package_name}"
-    if key in packages:
+    if key in (packages := data.get("packages", {})):
         return Version(packages[key]["version"])
-    raise AssertionError(
-        f"{package_name} not found in {FRONTEND_LOCK_JSON}"
-    )
+    raise AssertionError(f"{package_name} not found in {FRONTEND_LOCK_JSON}")
 
 
 def test_urllib3_cve_2023_43804() -> None:
