@@ -18,13 +18,18 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from packaging.requirements import Requirement
 from packaging.version import Version
 
+from superset.utils import json
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BASE_IN = REPO_ROOT / "requirements" / "base.in"
+FRONTEND_PACKAGE_JSON = REPO_ROOT / "superset-frontend" / "package.json"
+FRONTEND_LOCK_JSON = REPO_ROOT / "superset-frontend" / "package-lock.json"
 
 
 def _get_requirement(package_name: str) -> Requirement:
@@ -40,6 +45,36 @@ def _get_requirement(package_name: str) -> Requirement:
         if req.name.lower() == package_name.lower():
             return req
     raise AssertionError(f"{package_name} not found in {BASE_IN}")
+
+
+def _npm_caret_min_version(spec: str) -> Version:
+    """Return the minimum version allowed by an npm caret (``^``) range.
+
+    Only handles the ``^MAJOR.MINOR.PATCH`` form used in this repo.
+    """
+    match = re.match(r"\^(\d+\.\d+\.\d+.*)$", spec)
+    if not match:
+        raise ValueError(f"Unsupported npm version spec: {spec}")
+    return Version(match.group(1))
+
+
+def _get_npm_dependency_version(package_name: str) -> str:
+    """Return the version range for *package_name* from package.json."""
+    data = json.loads(FRONTEND_PACKAGE_JSON.read_text())
+    for section in ("dependencies", "devDependencies"):
+        version = data.get(section, {}).get(package_name)
+        if version is not None:
+            return version
+    raise AssertionError(f"{package_name} not found in {FRONTEND_PACKAGE_JSON}")
+
+
+def _get_npm_resolved_version(package_name: str) -> Version:
+    """Return the resolved version of *package_name* from the npm lockfile."""
+    data = json.loads(FRONTEND_LOCK_JSON.read_text())
+    key = f"node_modules/{package_name}"
+    if key in (packages := data.get("packages", {})):
+        return Version(packages[key]["version"])
+    raise AssertionError(f"{package_name} not found in {FRONTEND_LOCK_JSON}")
 
 
 def test_urllib3_cve_2023_43804() -> None:
@@ -85,4 +120,26 @@ def test_cryptography_cve_2023_49083() -> None:
     ), (
         f"cryptography constraint '{req.specifier}' does not allow any patched "
         f"version (CVE-2023-49083)"
+    )
+
+
+def test_lodash_cve_2021_23337() -> None:
+    """CVE-2021-23337 (HIGH): Command injection via lodash.template.
+
+    Fixed in lodash >= 4.17.21. The lower bound of the lodash dependency
+    in superset-frontend/package.json must exclude vulnerable versions.
+    """
+    spec = _get_npm_dependency_version("lodash")
+    min_version = _npm_caret_min_version(spec)
+    cve_fix_version = Version("4.17.21")
+
+    assert min_version >= cve_fix_version, (
+        f"lodash constraint '{spec}' allows versions below {cve_fix_version} "
+        f"(CVE-2021-23337)"
+    )
+
+    resolved = _get_npm_resolved_version("lodash")
+    assert resolved >= cve_fix_version, (
+        f"lodash resolved to {resolved} in lockfile, which is below "
+        f"{cve_fix_version} (CVE-2021-23337)"
     )
