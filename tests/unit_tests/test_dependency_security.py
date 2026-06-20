@@ -18,11 +18,12 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from packaging.requirements import Requirement
 from packaging.version import Version
+
+from superset.utils import json
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BASE_IN = REPO_ROOT / "requirements" / "base.in"
@@ -76,9 +77,7 @@ def _get_npm_override(package_name: str) -> str:
             f"{package_name} not found in overrides of {FRONTEND_PACKAGE_JSON}"
         )
     if not isinstance(constraint, str):
-        raise AssertionError(
-            f"{package_name} override is not a simple version string"
-        )
+        raise AssertionError(f"{package_name} override is not a simple version string")
     return constraint
 
 
