@@ -17,6 +17,7 @@
 # under the License.
 #
 # Security: CVE-2026-21441 - decompression bomb bypass on redirects
+# Security: CVE-2023-43804 (MEDIUM) - Cookie header not stripped on cross-origin redirects
 urllib3>=2.6.3,<3.0.0
 # Security: CVE-2026-27199 - Windows device name handling in safe_join
 werkzeug>=3.1.6,<4.0.0
