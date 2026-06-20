@@ -62,3 +62,27 @@ def test_urllib3_cve_2023_43804() -> None:
         f"urllib3 constraint '{req.specifier}' does not allow any patched "
         f"2.x version (CVE-2023-43804)"
     )
+
+
+def test_cryptography_cve_2023_49083() -> None:
+    """CVE-2023-49083: NULL-pointer dereference in PKCS7 certificate loading.
+
+    Calling ``load_pem_pkcs7_certificates`` or ``load_der_pkcs7_certificates``
+    could trigger a NULL-pointer dereference and segfault.
+    Fixed in cryptography >= 41.0.6.
+    The lower bound of the cryptography requirement must exclude vulnerable versions.
+    """
+    req = _get_requirement("cryptography")
+    vulnerable_versions = ["41.0.5", "41.0.4", "41.0.0", "40.0.0", "39.0.0"]
+    for ver in vulnerable_versions:
+        assert Version(ver) not in req.specifier, (
+            f"cryptography constraint '{req.specifier}' allows vulnerable "
+            f"version {ver} (CVE-2023-49083)"
+        )
+    # At least one patched version must be installable
+    assert Version("41.0.6") in req.specifier or any(
+        Version(v) in req.specifier for v in ["48.0.0", "48.0.1"]
+    ), (
+        f"cryptography constraint '{req.specifier}' does not allow any patched "
+        f"version (CVE-2023-49083)"
+    )
