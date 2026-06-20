@@ -19,6 +19,8 @@
 # Security: CVE-2026-21441 - decompression bomb bypass on redirects
 # Security: CVE-2023-43804 (MEDIUM) - Cookie header not stripped on cross-origin redirects
 urllib3>=2.6.3,<3.0.0
+# Security: CVE-2023-30861 (HIGH) - Session cookie sent to wrong client via caching proxy
+# Fixed in flask >= 2.2.5 / >= 2.3.2; lower bound in pyproject.toml bumped to >= 2.3.2
 # Security: CVE-2026-27199 - Windows device name handling in safe_join
 werkzeug>=3.1.6,<4.0.0
 # Security: CVE-2025-68146 - TOCTOU symlink vulnerability
