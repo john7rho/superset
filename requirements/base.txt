@@ -416,6 +416,8 @@ sqlglot==30.8.0
     # via
     #   apache-superset (pyproject.toml)
     #   apache-superset-core
+sqlparse==0.5.5
+    # via -r requirements/base.in
 sshtunnel==0.4.0
     # via apache-superset (pyproject.toml)
 tabulate==0.10.0

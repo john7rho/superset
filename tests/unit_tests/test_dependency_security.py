@@ -62,3 +62,24 @@ def test_urllib3_cve_2023_43804() -> None:
         f"urllib3 constraint '{req.specifier}' does not allow any patched "
         f"2.x version (CVE-2023-43804)"
     )
+
+
+def test_sqlparse_cve_2023_30608() -> None:
+    """CVE-2023-30608: ReDoS in SQL parser regular expression.
+
+    The SQL parser in sqlparse < 0.4.4 contains a regular expression
+    vulnerable to Regular Expression Denial of Service (ReDoS).
+    Fixed in sqlparse >= 0.4.4.
+    """
+    req = _get_requirement("sqlparse")
+    vulnerable_versions = ["0.4.3", "0.4.2", "0.4.1", "0.4.0", "0.3.1", "0.1.15"]
+    for ver in vulnerable_versions:
+        assert Version(ver) not in req.specifier, (
+            f"sqlparse constraint '{req.specifier}' allows vulnerable "
+            f"version {ver} (CVE-2023-30608)"
+        )
+    # At least one patched version must be installable
+    assert Version("0.4.4") in req.specifier or Version("0.5.0") in req.specifier, (
+        f"sqlparse constraint '{req.specifier}' does not allow any patched "
+        f"version (CVE-2023-30608)"
+    )
